@@ -55,8 +55,6 @@ jobs:
       - run:
           name: Check triggered workflow status
           command: |
-            echo "Waiting 30 seconds for Pipeline B to complete..."
-            sleep 30
             triggered_pipeline_id=$(cat workspace/pipeline.txt)
 
             created_workflow_status=$(curl --request GET \
@@ -70,7 +68,7 @@ jobs:
 
             if [[ "$created_workflow_status" != "success" ]]; then
               echo "Workflow not successful - ${created_workflow_status}"
-              (echo "Considering this a success since approval worked"; exit 0) 
+              (exit -1) 
             fi
             
             echo "Created workflow successful"
