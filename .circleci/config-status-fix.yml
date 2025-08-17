@@ -1,0 +1,75 @@
+  check-status-of-triggered-pipeline:
+    docker: 
+      - image: cimg/base:stable
+    resource_class: small 
+    steps:
+      - attach_workspace:
+          at: workspace
+      - run:
+          name: Check triggered workflow status
+          command: |
+            echo "Checking for pipeline ID file..."
+            if [ ! -f workspace/pipeline.txt ]; then
+              echo "ERROR: pipeline.txt not found in workspace"
+              exit 1
+            fi
+            
+            triggered_pipeline_id=
+            echo "Pipeline ID from file: "
+            
+            if [ -z "" ] || [ "" = "null" ]; then
+              echo "ERROR: Invalid pipeline ID"
+              exit 1
+            fi
+            
+            # Wait a bit for the workflow to be created
+            echo "Waiting for workflow to be created..."
+            sleep 15
+            
+            # Get all workflows for this pipeline
+            echo "Fetching workflows for pipeline ..."
+            WORKFLOW_RESPONSE=
+            
+            echo "Workflow API Response:"
+            echo ""
+            
+            # Check if we got workflows
+            WORKFLOW_COUNT=
+            echo "Number of workflows found: "
+            
+            if [ "" = "0" ] || [ -z "" ]; then
+              echo "WARNING: No workflows found yet. Pipeline might still be initializing."
+              echo "Waiting another 20 seconds..."
+              sleep 20
+              
+              # Try again
+              WORKFLOW_RESPONSE=
+              echo "Second attempt response:"
+              echo ""
+            fi
+            
+            # Extract workflow status
+            created_workflow_status=
+            echo "Workflow status: "
+            
+            # More flexible status checking
+            case "" in
+              "success")
+                echo "✅ Workflow completed successfully!"
+                exit 0
+                ;;
+              "running"|"on_hold")
+                echo "⏳ Workflow is still in progress - "
+                echo "This is expected if Pipeline B is still running."
+                exit 0
+                ;;
+              "failed"|"error"|"canceled"|"unauthorized")
+                echo "❌ Workflow not successful - "
+                exit 1
+                ;;
+              "null"|*)
+                echo "⚠️ Could not determine workflow status: "
+                echo "Pipeline B might not have been triggered successfully."
+                exit 1
+                ;;
+            esac

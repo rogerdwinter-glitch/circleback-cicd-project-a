@@ -1,0 +1,99 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@4.7.0
+
+jobs:
+  build-and-test:
+    parameters:
+      node-version:
+        type: string
+        default: "15.10.0"
+    docker:
+      - image: cimg/node:<< parameters.node-version >>
+    parallelism: 4
+    steps:
+      - checkout
+      - node/install-packages
+      - run:
+          command: |
+            npm run test-ci
+    
+  trigger-project-b-pipeline:
+    docker: 
+      - image: cimg/base:stable
+    resource_class: small
+    steps:
+      - run:
+          name: Trigger Project B via Webhook
+          command: |
+            echo "Triggering Project B pipeline via webhook..."
+            
+            # You need to replace WEBHOOK_URL and SECRET with actual values from CircleCI UI
+            # Go to Project B > Settings > Pipelines > Triggers > Add Custom Webhook
+            WEBHOOK_URL="REPLACE_WITH_PROJECT_B_WEBHOOK_URL"
+            WEBHOOK_SECRET="REPLACE_WITH_PROJECT_B_WEBHOOK_SECRET"
+            
+            # Create JSON payload with triggering pipeline ID
+            PAYLOAD='{
+              "triggering_pipeline_id": "<< pipeline.id >>",
+              "triggering_workflow_id": "<< pipeline.parameters.workflow_id >>",
+              "callback_webhook_url": "REPLACE_WITH_PROJECT_A_WEBHOOK_URL",
+              "callback_webhook_secret": "REPLACE_WITH_PROJECT_A_WEBHOOK_SECRET"
+            }'
+            
+            echo "Sending webhook to Project B..."
+            RESPONSE=
+            
+            echo "Webhook response: "
+            
+            # Store some identifier for tracking (webhook doesn't return pipeline ID)
+            mkdir ~/workspace
+            echo "<< pipeline.id >>" > ~/workspace/triggering-pipeline.txt
+            echo "Webhook triggered at Sun Aug 17 02:39:19 PDT 2025" > ~/workspace/webhook-status.txt
+            
+      - persist_to_workspace:
+          root: ~/workspace
+          paths: 
+            - triggering-pipeline.txt
+            - webhook-status.txt
+
+  wait-and-check-status:
+    docker: 
+      - image: cimg/base:stable
+    resource_class: small 
+    steps:
+      - attach_workspace:
+          at: ~/workspace
+      - run:
+          name: Wait and check status
+          command: |
+            echo "Waiting for Project B to complete and callback..."
+            # In webhook-based approach, we rely on Project B to trigger a callback
+            # This job would typically wait for a certain time or check a status endpoint
+            
+            # For now, just log the status
+            cat ~/workspace/webhook-status.txt
+            
+            # In production, you might poll a status endpoint or wait for callback
+            echo "Note: With webhooks, Project B needs to trigger a callback to Project A"
+            echo "This requires setting up another webhook in Project A to receive the callback"
+
+workflows:
+  node-test-and-deploy:
+    jobs:
+      - build-and-test
+      - trigger-project-b-pipeline:
+          context: 
+            - circleci-api
+          requires:
+            - build-and-test
+          filters:
+            branches:
+              only: main
+      # Removed approval job - with webhooks, we use callbacks instead
+      - wait-and-check-status:
+          requires:
+            - trigger-project-b-pipeline
+          context:
+            - circleci-api
