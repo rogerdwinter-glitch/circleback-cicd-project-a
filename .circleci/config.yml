@@ -39,9 +39,9 @@ jobs:
             echo $CREATED_PIPELINE
 
             mkdir ~/workspace
-            echo $CREATED_PIPELINE > pipeline.txt
+            echo $CREATED_PIPELINE > ~/workspace/pipeline.txt
       - persist_to_workspace:
-          root: .
+          root: ~/workspace
           paths: 
             - pipeline.txt  
 
@@ -51,11 +51,11 @@ jobs:
     resource_class: small 
     steps:
       - attach_workspace:
-          at: workspace
+          at: ~/workspace
       - run:
           name: Check triggered workflow status
           command: |
-            triggered_pipeline_id=$(cat workspace/pipeline.txt)
+            triggered_pipeline_id=$(cat ~/workspace/pipeline.txt)
 
             created_workflow_status=$(curl --request GET \
                 --url "https://circleci.com/api/v2/pipeline/${triggered_pipeline_id}/workflow" \
